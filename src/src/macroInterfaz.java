@@ -22,6 +22,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.image.Image;
 
 
+import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
@@ -45,12 +46,19 @@ public class macroInterfaz extends Application {
     private volatile boolean running = true;
     private volatile boolean stateBefore = true;
 
+    //Segundo plano
+    private Stage primaryStage;
+    private SystemTray systemTray;
+    private TrayIcon trayIcon;
+
     //Atributo para las rutas que se estaran guardando
     private String ruta;
 
     @Override
     public void start(Stage primaryStage) throws InterruptedException {
 
+        this.primaryStage = primaryStage;
+        Platform.setImplicitExit(false);
         modoLED = 1;
         inicializarTeclas();
 
@@ -60,12 +68,6 @@ public class macroInterfaz extends Application {
 
         //StackPane para la carcasa y el teclado
         StackPane keyboardContainer = new StackPane();
-        Label labelTitulo = new Label("Configuracion de macros");
-        labelTitulo.setFont(Font.font("Arial", FontWeight.NORMAL, 25));
-        labelTitulo.setStyle("-fx-background-color: #1e1e1e;" +
-                "-fx-text-fill: white;" +
-                "-fx-font-weight: bold;" +
-                "-fx-background-radius: 20;");
 
         //Carcasa (rectangulo que representa la caja del teclado)
         Rectangle carcasa = new Rectangle(360, 360);
@@ -458,28 +460,20 @@ public class macroInterfaz extends Application {
         //Agregar el contenedor al root
         root.getChildren().addAll(keyboardContainer, menuContainer);
         root.setAlignment(Pos.CENTER);
-        root.getChildren().add(labelTitulo);
         root.setAlignment(Pos.TOP_CENTER);
 
         Scene scene = new Scene(root, 800, 600);
         primaryStage.setScene(scene);
         primaryStage.setTitle("Configuracion Stream Deck");
 
+        configurarSystemTray();
         cargarConfiguracion();
 
-        primaryStage.show();
         primaryStage.setOnCloseRequest(event -> {
-            System.out.println("\nCerrando aplicación...");
-            running = false;
-
-            if (esp32 != null) {
-                esp32.close();
-                Platform.exit();
-                System.exit(0);
-            }
-
-            System.out.println("Aplicación cerrada\n");
+            event.consume();
+            ocultarVentana();
         });
+        primaryStage.show();
     }
 
     /**
@@ -616,6 +610,10 @@ public class macroInterfaz extends Application {
     }
 
     public static void main(String[] args) {
+
+        String texto = "Hola";
+        Character c = texto.charAt(0);
+        Character.toLowerCase(c);
         launch(args);
     }
 
@@ -1140,10 +1138,10 @@ public class macroInterfaz extends Application {
 
                     ArrayList<Character> teclas = new ArrayList<>();
                     for (char c = 'A'; c <= 'Z'; c++) {
-                        teclas.add(c);
+                        teclas.add(Character.valueOf(c));
                     }
                     for (char c = '0'; c <= '9'; c++) {
-                        teclas.add(c);
+                        teclas.add(Character.valueOf(c));
                     }
 
                     ArrayList<String> letrasYnumeros = new ArrayList<>();
@@ -1194,6 +1192,10 @@ public class macroInterfaz extends Application {
         stage.setScene(scene);
         stage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
         stage.setResizable(false);
+
+        stage.setOnCloseRequest(event -> {
+            System.out.println("SE CERRO ESTE PEDO");
+        });
         stage.showAndWait();
     }
 
@@ -1225,22 +1227,22 @@ public class macroInterfaz extends Application {
      * Funcion para asignar dinamicamente comandos
      */
     private void inicializarTeclas() {
-        keyMap.put("CTRL", KeyEvent.VK_CONTROL);
-        keyMap.put("SHIFT", KeyEvent.VK_SHIFT);
-        keyMap.put("ALT", KeyEvent.VK_ALT);
-        keyMap.put("WIN", KeyEvent.VK_WINDOWS);
-        keyMap.put("ENTER", KeyEvent.VK_ENTER);
-        keyMap.put("TAB", KeyEvent.VK_TAB);
-        keyMap.put("ESC", KeyEvent.VK_ESCAPE);
-        keyMap.put("BACKSPACE", KeyEvent.VK_BACK_SPACE);
-        keyMap.put("SPACE", KeyEvent.VK_SPACE);
+        keyMap.put("CTRL", Integer.valueOf(KeyEvent.VK_CONTROL));
+        keyMap.put("SHIFT", Integer.valueOf(KeyEvent.VK_SHIFT));
+        keyMap.put("ALT", Integer.valueOf(KeyEvent.VK_ALT));
+        keyMap.put("WIN", Integer.valueOf(KeyEvent.VK_WINDOWS));
+        keyMap.put("ENTER", Integer.valueOf(KeyEvent.VK_ENTER));
+        keyMap.put("TAB", Integer.valueOf(KeyEvent.VK_TAB));
+        keyMap.put("ESC", Integer.valueOf(KeyEvent.VK_ESCAPE));
+        keyMap.put("BACKSPACE", Integer.valueOf(KeyEvent.VK_BACK_SPACE));
+        keyMap.put("SPACE", Integer.valueOf(KeyEvent.VK_SPACE));
 
         for (char c = 'A'; c <= 'Z'; ++c) {
-            keyMap.put(String.valueOf(c), KeyEvent.getExtendedKeyCodeForChar(c));
+            keyMap.put(String.valueOf(c), Integer.valueOf(KeyEvent.getExtendedKeyCodeForChar(c)));
         }
 
         for (char c = '0'; c <= '9'; c++) {
-            keyMap.put(String.valueOf(c), KeyEvent.getExtendedKeyCodeForChar(c));
+            keyMap.put(String.valueOf(c), Integer.valueOf(KeyEvent.getExtendedKeyCodeForChar(c)));
         }
     }
 
@@ -1339,6 +1341,87 @@ public class macroInterfaz extends Application {
     private boolean estadoESP32(SerialPort puerto) {
         return puerto.bytesAvailable() != -1;
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //Segundo plano
+
+    private void configurarSystemTray() {
+        if (!SystemTray.isSupported()) {
+            System.out.println("No soporta ST");
+            return;
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            try {
+                systemTray = SystemTray.getSystemTray();
+
+                java.awt.Image image = Toolkit.getDefaultToolkit().getImage("C:\\Users\\sgsg_\\IdeaProjects\\stremDeck\\Minimalist_SD_Icon_Design_Photoroom.png");
+
+                PopupMenu popup = new PopupMenu();
+
+                MenuItem mostrarItem = new MenuItem("Mostrar");
+                mostrarItem.addActionListener(e -> Platform.runLater(() -> mostrarVentana()));
+                popup.add(mostrarItem);
+
+                popup.addSeparator();
+
+                MenuItem salirItem = new MenuItem("Salir");
+                salirItem.addActionListener(e -> {
+                    System.out.println("\nCerrando aplicación...");
+                    running = false;
+
+                    if (esp32 != null) {
+                        esp32.close();
+                    }
+
+                    System.out.println("Aplicación cerrada\n");
+
+                    Platform.exit();
+                    System.exit(0);
+                });
+                popup.add(salirItem);
+
+                trayIcon = new TrayIcon(image, "StreamDeck Macros", popup);
+                trayIcon.setImageAutoSize(true);
+
+                trayIcon.addActionListener(e -> Platform.runLater(() -> mostrarVentana()));
+                systemTray.add(trayIcon);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private void ocultarVentana() {
+        if (primaryStage != null) {
+            primaryStage.hide();
+
+            // Mostrar notificación
+            if (trayIcon != null) {
+                trayIcon.displayMessage(
+                        "StreamDeck Macros",
+                        "La aplicación sigue ejecutándose en segundo plano",
+                        TrayIcon.MessageType.INFO
+                );
+            }
+            System.out.println("✓ Ventana oculta - App corriendo en segundo plano");
+        }
+    }
+
+    private void mostrarVentana() {
+        if (primaryStage != null) {
+            primaryStage.show();
+            primaryStage.toFront();
+            System.out.println("Ventana mostrada");
+        }
+    }
+
+    public void stop() {
+        if (systemTray != null && trayIcon != null) {
+            systemTray.remove(trayIcon);
+        }
+    }
+
 
 
 
