@@ -1,4 +1,4 @@
-**Programmable 4x4 Macro Keypad**
+# Programmable 4x4 Macro Keypad
 
 A custom-built Stream Deck based on an ESP32-S3, implemented using a 4x4 matrix keypad with diodes to eliminate ghosting.
 
