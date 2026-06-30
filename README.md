@@ -2,8 +2,9 @@
 
 A desktop application built in Java and JavaFX that serves as the configuration and control software for a custom-built programmable 4×4 macro keypad. The app communicates in real time with the hardware via serial communication, allowing users to configure and execute macros through a graphical interface.
 
-![Macro Keypad screenshot 1](./public/movieLens1.png)
-![Macro Keypad screenshot 2](./public/movieLens1.png)
+![Macro Keypad screenshot 1](sd1.png)
+![Macro Keypad screenshot 2](sd2.png)
+![Macro Keypad screenshot 2](sd3.png)
 
 ## Features
 
